@@ -25,12 +25,19 @@ export function DayDetailPanel({ date, onClose }: DayDetailPanelProps) {
       aria-modal="true"
       aria-label={`${date} 할 일 패널`}
       data-testid="day-detail-panel"
-      className="fixed inset-0 z-40 flex items-end justify-center bg-ink/30 sm:items-center"
+      className="fixed inset-0 z-40 bg-ink/30 sm:flex sm:items-center sm:justify-center"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <section className="w-full max-w-md rounded-t-card bg-surface-subtle p-4 shadow-card sm:rounded-card">
+      <section
+        data-testid="day-detail-sheet"
+        className="
+          fixed bottom-0 left-0 right-0 max-h-[85vh] overflow-auto
+          rounded-t-card bg-surface-subtle p-4 shadow-card
+          sm:static sm:bottom-auto sm:left-auto sm:right-auto sm:w-full sm:max-w-md sm:max-h-none sm:rounded-card sm:overflow-visible
+        "
+      >
         <header className="mb-3 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-ink">{date}</h3>
           <button
