@@ -112,7 +112,8 @@ describe('Add-todo flow (#11)', () => {
       </TodoProvider>,
     );
 
-    const todayCell = await screen.findByLabelText(/2026-04-27.*할 일 2개/);
-    expect(within(todayCell).getByTestId('todo-count').textContent).toBe('2');
+    // done=true 인 '독서' 는 카운트에서 제외 → 미완료 1개
+    const todayCell = await screen.findByLabelText(/2026-04-27.*미완료 1개/);
+    expect(within(todayCell).getByTestId('todo-count').textContent).toBe('1');
   });
 });

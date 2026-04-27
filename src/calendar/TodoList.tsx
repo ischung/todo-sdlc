@@ -1,4 +1,4 @@
-import type { DateKey } from '../domain/types';
+import type { DateKey, Todo } from '../domain/types';
 import { useTodos } from '../state/useTodos';
 
 interface TodoListProps {
@@ -6,7 +6,7 @@ interface TodoListProps {
 }
 
 export function TodoList({ date }: TodoListProps) {
-  const { listByDate } = useTodos();
+  const { listByDate, toggleTodo } = useTodos();
   const items = listByDate(date);
 
   if (items.length === 0) {
@@ -20,14 +20,40 @@ export function TodoList({ date }: TodoListProps) {
   return (
     <ul aria-label={`${date} 할 일 목록`} className="flex flex-col gap-1" data-testid="todo-list">
       {items.map((todo) => (
-        <li
-          key={todo.id}
-          data-testid="todo-item"
-          className="rounded-md bg-surface px-3 py-2 text-sm text-ink shadow-sm"
-        >
-          {todo.title}
-        </li>
+        <TodoItem key={todo.id} todo={todo} onToggle={() => toggleTodo({ date, id: todo.id })} />
       ))}
     </ul>
+  );
+}
+
+interface TodoItemProps {
+  todo: Todo;
+  onToggle: () => void;
+}
+
+function TodoItem({ todo, onToggle }: TodoItemProps) {
+  return (
+    <li
+      data-testid="todo-item"
+      data-done={todo.done || undefined}
+      className="rounded-md bg-surface px-3 py-2 text-sm text-ink shadow-sm flex items-center gap-2"
+    >
+      <input
+        type="checkbox"
+        checked={todo.done}
+        onChange={onToggle}
+        aria-label={`${todo.title} 완료 여부`}
+        data-testid="todo-toggle"
+        className="h-4 w-4 accent-brand-600"
+      />
+      <span
+        data-testid="todo-title"
+        className={
+          todo.done ? 'flex-1 text-ink-faint line-through' : 'flex-1 text-ink'
+        }
+      >
+        {todo.title}
+      </span>
+    </li>
   );
 }

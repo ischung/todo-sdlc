@@ -84,14 +84,40 @@ export function TodoProvider({ children, storage, generateId, now }: TodoProvide
     [repository, generateId, now],
   );
 
+  const toggleTodo = useCallback(
+    ({ date, id }: { date: import('../domain/types').DateKey; id: string }): Result<void> => {
+      const prev = stateRef.current;
+      const list = prev.root.todosByDate[date];
+      if (!list) {
+        return { ok: false, error: { code: 'NOT_FOUND', message: '항목을 찾을 수 없어요.' } };
+      }
+      const target = list.find((t) => t.id === id);
+      if (!target) {
+        return { ok: false, error: { code: 'NOT_FOUND', message: '항목을 찾을 수 없어요.' } };
+      }
+      const ts = (now?.() ?? new Date()).toISOString();
+      const nextList = list.map((t) => (t.id === id ? { ...t, done: !t.done, updatedAt: ts } : t));
+      const nextRoot = {
+        ...prev.root,
+        todosByDate: { ...prev.root.todosByDate, [date]: nextList },
+      };
+      const saved = repository.save(nextRoot);
+      if (!saved.ok) return saved;
+      dispatch({ type: 'TOGGLE', payload: { date, id, updatedAt: ts } });
+      return { ok: true, data: undefined };
+    },
+    [repository, now],
+  );
+
   const value = useMemo<TodoContextValue>(
     () => ({
       state,
       listByDate: (date) => selectListByDate(state, date),
       countByDate: (date) => selectCountByDate(state, date),
       addTodo,
+      toggleTodo,
     }),
-    [state, addTodo],
+    [state, addTodo, toggleTodo],
   );
 
   return <TodoContext.Provider value={value}>{children}</TodoContext.Provider>;
