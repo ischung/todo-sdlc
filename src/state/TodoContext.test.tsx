@@ -1,4 +1,4 @@
-import { render, renderHook, waitFor } from '@testing-library/react';
+import { act, render, renderHook, waitFor } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import type { ReactNode } from 'react';
 import { TodoProvider } from './TodoContext';
@@ -66,6 +66,51 @@ describe('<TodoProvider />', () => {
     const { result } = renderHook(() => useTodos(), { wrapper: wrap(null) });
     await waitFor(() => expect(result.current.state.loaded).toBe(true));
     expect(result.current.listByDate('2026-04-27')).toEqual([]);
+  });
+
+  it('addTodo 는 trim 후 저장하고 영속한다 (#11 ADD)', async () => {
+    const storage = memoryStorage();
+    const { result } = renderHook(() => useTodos(), {
+      wrapper: ({ children }) => (
+        <TodoProvider
+          storage={storage}
+          generateId={() => 'id-1'}
+          now={() => new Date('2026-04-27T09:00:00Z')}
+        >
+          {children}
+        </TodoProvider>
+      ),
+    });
+    await waitFor(() => expect(result.current.state.loaded).toBe(true));
+
+    let res!: ReturnType<typeof result.current.addTodo>;
+    act(() => {
+      res = result.current.addTodo({ date: '2026-04-27', title: '  집중 90분  ' });
+    });
+    expect(res.ok).toBe(true);
+    expect(result.current.listByDate('2026-04-27')).toHaveLength(1);
+    expect(result.current.listByDate('2026-04-27')[0]?.title).toBe('집중 90분');
+
+    // 영속까지 갔는지 확인 — storage 에 직렬화되어 있어야 새로고침 후에도 유지됨
+    const persisted = storage.getItem(STORAGE_KEY);
+    expect(persisted).not.toBeNull();
+    expect(JSON.parse(persisted!).todosByDate['2026-04-27']).toHaveLength(1);
+  });
+
+  it('addTodo 는 빈/공백 입력을 거부한다', async () => {
+    const { result } = renderHook(() => useTodos(), { wrapper: wrap(memoryStorage()) });
+    await waitFor(() => expect(result.current.state.loaded).toBe(true));
+    const res = result.current.addTodo({ date: '2026-04-27', title: '   ' });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error.code).toBe('VALIDATION_EMPTY_TITLE');
+  });
+
+  it('addTodo 는 100자 초과를 거부한다', async () => {
+    const { result } = renderHook(() => useTodos(), { wrapper: wrap(memoryStorage()) });
+    await waitFor(() => expect(result.current.state.loaded).toBe(true));
+    const res = result.current.addTodo({ date: '2026-04-27', title: 'x'.repeat(101) });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error.code).toBe('VALIDATION_TITLE_TOO_LONG');
   });
 
   it('Provider 가 자식 트리를 그대로 렌더링한다', () => {

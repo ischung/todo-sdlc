@@ -6,7 +6,9 @@ export interface TodosState {
   root: PersistRoot;
 }
 
-export type TodosAction = { type: 'LOAD'; payload: PersistRoot };
+export type TodosAction =
+  | { type: 'LOAD'; payload: PersistRoot }
+  | { type: 'ADD'; payload: Todo };
 
 export const initialTodosState: TodosState = {
   loaded: false,
@@ -17,6 +19,17 @@ export function todosReducer(state: TodosState, action: TodosAction): TodosState
   switch (action.type) {
     case 'LOAD':
       return { loaded: true, root: action.payload };
+    case 'ADD': {
+      const { date } = action.payload;
+      const list = state.root.todosByDate[date] ?? [];
+      return {
+        ...state,
+        root: {
+          ...state.root,
+          todosByDate: { ...state.root.todosByDate, [date]: [...list, action.payload] },
+        },
+      };
+    }
     default:
       return state;
   }
