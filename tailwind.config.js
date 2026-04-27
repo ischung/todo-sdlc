@@ -17,7 +17,8 @@ export default {
         ink: {
           DEFAULT: '#0f172a',
           muted: '#475569',
-          faint: '#94a3b8',
+          // 흰색 / #f8fafc 모두에서 4.5:1 이상 보장 (axe color-contrast 위반 방지).
+          faint: '#64748b',
         },
         success: '#16a34a',
         danger: '#dc2626',
