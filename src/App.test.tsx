@@ -14,4 +14,9 @@ describe('<App />', () => {
     expect(heading.className).toMatch(/text-2xl/);
     expect(heading.className).toMatch(/text-brand-700/);
   });
+
+  it('exposes the active environment label', () => {
+    render(<App />);
+    expect(screen.getByTestId('app-env')).toHaveTextContent(/env: \w+/);
+  });
 });
