@@ -16,7 +16,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:smoke": "playwright test"
+    "test:smoke": "playwright test",
+    "test:e2e": "playwright test --config=playwright.e2e.config.ts"
   },
   "dependencies": {
     "date-fns": "^3.6.0",
