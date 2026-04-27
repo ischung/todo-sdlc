@@ -69,6 +69,45 @@ describe('todosReducer', () => {
     expect(selectCountByDate(seeded, '2026-04-27')).toBe(2);
   });
 
+  it('REMOVE 는 해당 id 만 제거한다 (#13)', () => {
+    const seeded = todosReducer(initialTodosState, {
+      type: 'LOAD',
+      payload: {
+        schemaVersion: 1,
+        todosByDate: { '2026-04-27': [mk({ id: '1' }), mk({ id: '2' }), mk({ id: '3' })] },
+      },
+    });
+    const next = todosReducer(seeded, { type: 'REMOVE', payload: { date: '2026-04-27', id: '2' } });
+    expect(selectListByDate(next, '2026-04-27').map((t) => t.id)).toEqual(['1', '3']);
+  });
+
+  it('RESTORE 는 같은 인덱스에 다시 끼워넣는다 (#13)', () => {
+    const removed = todosReducer(initialTodosState, {
+      type: 'LOAD',
+      payload: {
+        schemaVersion: 1,
+        todosByDate: { '2026-04-27': [mk({ id: '1' }), mk({ id: '3' })] },
+      },
+    });
+    const next = todosReducer(removed, {
+      type: 'RESTORE',
+      payload: { date: '2026-04-27', index: 1, todo: mk({ id: '2' }) },
+    });
+    expect(selectListByDate(next, '2026-04-27').map((t) => t.id)).toEqual(['1', '2', '3']);
+  });
+
+  it('RESTORE index 가 범위를 벗어나면 가까운 끝으로 클램핑한다', () => {
+    const seeded = todosReducer(initialTodosState, {
+      type: 'LOAD',
+      payload: { schemaVersion: 1, todosByDate: { '2026-04-27': [mk({ id: '1' })] } },
+    });
+    const next = todosReducer(seeded, {
+      type: 'RESTORE',
+      payload: { date: '2026-04-27', index: 999, todo: mk({ id: '2' }) },
+    });
+    expect(selectListByDate(next, '2026-04-27').map((t) => t.id)).toEqual(['1', '2']);
+  });
+
   it('알 수 없는 액션 타입은 state 를 그대로 돌려준다 (방어적)', () => {
     const next = todosReducer(initialTodosState, {
       // 의도적으로 비정상 액션

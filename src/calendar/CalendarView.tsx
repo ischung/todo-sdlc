@@ -4,6 +4,7 @@ import type { DateKey } from '../domain/types';
 import { useTodos } from '../state/useTodos';
 import { buildMonthGrid, type CalendarCell } from './buildMonthGrid';
 import { DayDetailPanel } from './DayDetailPanel';
+import { UndoToast } from './UndoToast';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -81,6 +82,7 @@ export function CalendarView({ anchor, today }: CalendarViewProps) {
       </div>
 
       {openDate ? <DayDetailPanel date={openDate} onClose={() => setOpenDate(null)} /> : null}
+      <UndoToast />
     </section>
   );
 }

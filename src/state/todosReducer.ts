@@ -9,7 +9,9 @@ export interface TodosState {
 export type TodosAction =
   | { type: 'LOAD'; payload: PersistRoot }
   | { type: 'ADD'; payload: Todo }
-  | { type: 'TOGGLE'; payload: { date: DateKey; id: string; updatedAt: string } };
+  | { type: 'TOGGLE'; payload: { date: DateKey; id: string; updatedAt: string } }
+  | { type: 'REMOVE'; payload: { date: DateKey; id: string } }
+  | { type: 'RESTORE'; payload: { date: DateKey; index: number; todo: Todo } };
 
 export const initialTodosState: TodosState = {
   loaded: false,
@@ -36,6 +38,26 @@ export function todosReducer(state: TodosState, action: TodosAction): TodosState
       const list = state.root.todosByDate[date];
       if (!list) return state;
       const next = list.map((t) => (t.id === id ? { ...t, done: !t.done, updatedAt } : t));
+      return {
+        ...state,
+        root: { ...state.root, todosByDate: { ...state.root.todosByDate, [date]: next } },
+      };
+    }
+    case 'REMOVE': {
+      const { date, id } = action.payload;
+      const list = state.root.todosByDate[date];
+      if (!list) return state;
+      const next = list.filter((t) => t.id !== id);
+      return {
+        ...state,
+        root: { ...state.root, todosByDate: { ...state.root.todosByDate, [date]: next } },
+      };
+    }
+    case 'RESTORE': {
+      const { date, index, todo } = action.payload;
+      const list = state.root.todosByDate[date] ?? [];
+      const clamped = Math.max(0, Math.min(index, list.length));
+      const next = [...list.slice(0, clamped), todo, ...list.slice(clamped)];
       return {
         ...state,
         root: { ...state.root, todosByDate: { ...state.root.todosByDate, [date]: next } },
