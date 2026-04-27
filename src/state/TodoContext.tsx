@@ -1,7 +1,20 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, type ReactNode } from 'react';
-import type { Result, Todo } from '../domain/types';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import type { DateKey, PersistRoot, Result, Todo } from '../domain/types';
 import { TodoRepository, detectBrowserStorage, type StorageLike } from '../infra/TodoRepository';
-import { TodoContext, type AddTodoInput, type TodoContextValue } from './todoContextValue';
+import {
+  TodoContext,
+  type AddTodoInput,
+  type PendingRemoval,
+  type TodoContextValue,
+} from './todoContextValue';
 import {
   initialTodosState,
   selectCountByDate,
@@ -18,11 +31,21 @@ export interface TodoProviderProps {
   generateId?: () => string;
   /** 테스트용 시각 주입. 미지정 시 new Date(). */
   now?: () => Date;
+  /** 5초 undo 토스트의 만료 시간(ms). 테스트에서 짧게 줄일 수 있다. */
+  undoWindowMs?: number;
 }
 
 const TITLE_MAX = 100;
 
-export function TodoProvider({ children, storage, generateId, now }: TodoProviderProps) {
+const DEFAULT_UNDO_MS = 5000;
+
+export function TodoProvider({
+  children,
+  storage,
+  generateId,
+  now,
+  undoWindowMs = DEFAULT_UNDO_MS,
+}: TodoProviderProps) {
   const repository = useMemo(
     () => new TodoRepository(storage === undefined ? detectBrowserStorage() : storage),
     [storage],
@@ -109,6 +132,86 @@ export function TodoProvider({ children, storage, generateId, now }: TodoProvide
     [repository, now],
   );
 
+  const [pendingRemoval, setPendingRemoval] = useState<PendingRemoval | null>(null);
+  const expireTimerRef = useRef<number | null>(null);
+
+  const clearTimer = useCallback(() => {
+    if (expireTimerRef.current !== null) {
+      window.clearTimeout(expireTimerRef.current);
+      expireTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => clearTimer(), [clearTimer]);
+
+  const persistRemoval = useCallback(
+    (date: DateKey, id: string): Result<PersistRoot> => {
+      const prev = stateRef.current;
+      const list = prev.root.todosByDate[date] ?? [];
+      const next = list.filter((t) => t.id !== id);
+      const nextRoot: PersistRoot = {
+        ...prev.root,
+        todosByDate: { ...prev.root.todosByDate, [date]: next },
+      };
+      const saved = repository.save(nextRoot);
+      return saved.ok ? { ok: true, data: nextRoot } : saved;
+    },
+    [repository],
+  );
+
+  const removeTodo = useCallback(
+    ({ date, id }: { date: DateKey; id: string }): Result<PendingRemoval> => {
+      const prev = stateRef.current;
+      const list = prev.root.todosByDate[date];
+      if (!list) {
+        return { ok: false, error: { code: 'NOT_FOUND', message: '항목을 찾을 수 없어요.' } };
+      }
+      const index = list.findIndex((t) => t.id === id);
+      if (index < 0) {
+        return { ok: false, error: { code: 'NOT_FOUND', message: '항목을 찾을 수 없어요.' } };
+      }
+      const target = list[index]!;
+
+      const saved = persistRemoval(date, id);
+      if (!saved.ok) return saved;
+
+      dispatch({ type: 'REMOVE', payload: { date, id } });
+
+      const removal: PendingRemoval = { date, todo: target, index };
+      // 이전 대기건이 있다면 즉시 만료(영속은 이미 끝나 있음).
+      clearTimer();
+      setPendingRemoval(removal);
+      expireTimerRef.current = window.setTimeout(() => {
+        setPendingRemoval((cur) => (cur === removal ? null : cur));
+        expireTimerRef.current = null;
+      }, undoWindowMs);
+
+      return { ok: true, data: removal };
+    },
+    [persistRemoval, clearTimer, undoWindowMs],
+  );
+
+  const undoRemove = useCallback((): Result<void> => {
+    const removal = pendingRemoval;
+    if (!removal) {
+      return { ok: false, error: { code: 'NOT_FOUND', message: '되돌릴 항목이 없어요.' } };
+    }
+    const prev = stateRef.current;
+    const list = prev.root.todosByDate[removal.date] ?? [];
+    const idx = Math.max(0, Math.min(removal.index, list.length));
+    const nextList = [...list.slice(0, idx), removal.todo, ...list.slice(idx)];
+    const nextRoot: PersistRoot = {
+      ...prev.root,
+      todosByDate: { ...prev.root.todosByDate, [removal.date]: nextList },
+    };
+    const saved = repository.save(nextRoot);
+    if (!saved.ok) return saved;
+    dispatch({ type: 'RESTORE', payload: { date: removal.date, index: idx, todo: removal.todo } });
+    clearTimer();
+    setPendingRemoval(null);
+    return { ok: true, data: undefined };
+  }, [pendingRemoval, repository, clearTimer]);
+
   const value = useMemo<TodoContextValue>(
     () => ({
       state,
@@ -116,8 +219,11 @@ export function TodoProvider({ children, storage, generateId, now }: TodoProvide
       countByDate: (date) => selectCountByDate(state, date),
       addTodo,
       toggleTodo,
+      removeTodo,
+      undoRemove,
+      pendingRemoval,
     }),
-    [state, addTodo, toggleTodo],
+    [state, addTodo, toggleTodo, removeTodo, undoRemove, pendingRemoval],
   );
 
   return <TodoContext.Provider value={value}>{children}</TodoContext.Provider>;

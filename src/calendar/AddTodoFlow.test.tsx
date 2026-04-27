@@ -39,7 +39,7 @@ describe('Add-todo flow (#11)', () => {
       expect(within(panel).getByTestId('todo-list')).toBeInTheDocument();
     });
     expect(within(panel).getAllByTestId('todo-item')).toHaveLength(1);
-    expect(within(panel).getByTestId('todo-item').textContent).toBe('집중 시간 90분');
+    expect(within(panel).getByTestId('todo-title').textContent).toBe('집중 시간 90분');
     expect(input.value).toBe('');
     expect(input).toHaveFocus();
 
