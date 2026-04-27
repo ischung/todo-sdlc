@@ -5,6 +5,7 @@ import { useTodos } from '../state/useTodos';
 import { buildMonthGrid, type CalendarCell } from './buildMonthGrid';
 import { DayDetailPanel } from './DayDetailPanel';
 import { UndoToast } from './UndoToast';
+import { ErrorToast, StorageUnavailableBanner } from './ErrorToast';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -31,6 +32,7 @@ export function CalendarView({ anchor, today }: CalendarViewProps) {
       aria-label={`${monthLabel} 달력`}
       className="rounded-card bg-surface shadow-card p-4"
     >
+      <StorageUnavailableBanner />
       <header className="flex items-center justify-between mb-3 gap-2">
         <h2 className="text-2xl font-semibold tracking-tight text-ink">{monthLabel}</h2>
         <nav aria-label="달 이동" className="flex items-center gap-1">
@@ -83,6 +85,7 @@ export function CalendarView({ anchor, today }: CalendarViewProps) {
 
       {openDate ? <DayDetailPanel date={openDate} onClose={() => setOpenDate(null)} /> : null}
       <UndoToast />
+      <ErrorToast />
     </section>
   );
 }

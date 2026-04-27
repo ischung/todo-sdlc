@@ -25,6 +25,11 @@ export interface TodoContextValue {
   undoRemove: () => Result<void>;
   /** 현재 진행 중인 5초 undo 대상. 없으면 null. */
   pendingRemoval: PendingRemoval | null;
+  /** 일시적 저장 실패 메시지(쿼터 초과 등). 사용자에게 토스트로 노출. */
+  errorMessage: string | null;
+  dismissError: () => void;
+  /** localStorage 자체 비활성(시크릿 모드 등) 여부. true 면 배너 노출. */
+  storageUnavailable: boolean;
 }
 
 export const TodoContext = createContext<TodoContextValue | null>(null);
