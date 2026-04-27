@@ -7,6 +7,8 @@ export default {
         brand: {
           50: '#eef4ff',
           500: '#3b82f6',
+          // bg-brand-600 + text-white = 5.17:1 (AA pass). 누락 시 흰 텍스트가 부모 배경 위에 그대로 떨어짐.
+          600: '#2563eb',
           700: '#1d4ed8',
         },
         surface: {
@@ -17,7 +19,8 @@ export default {
         ink: {
           DEFAULT: '#0f172a',
           muted: '#475569',
-          faint: '#94a3b8',
+          // 흰색 / #f8fafc 모두에서 4.5:1 이상 보장 (axe color-contrast 위반 방지).
+          faint: '#64748b',
         },
         success: '#16a34a',
         danger: '#dc2626',

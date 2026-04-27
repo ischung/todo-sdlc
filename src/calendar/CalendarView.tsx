@@ -9,6 +9,12 @@ import { ErrorToast, StorageUnavailableBanner } from './ErrorToast';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
 interface CalendarViewProps {
   /** 초기 표시 달의 임의 일자. 미지정 시 today. */
   anchor?: Date;
@@ -41,7 +47,7 @@ export function CalendarView({ anchor, today }: CalendarViewProps) {
             onClick={() => setAnchorDate((d) => startOfMonth(subMonths(d, 1)))}
             aria-label="이전 달"
             data-testid="prev-month"
-            className="rounded-md px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-subtle hover:text-ink"
+            className="rounded-md px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-subtle hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
           >
             ←
           </button>
@@ -51,7 +57,7 @@ export function CalendarView({ anchor, today }: CalendarViewProps) {
             disabled={isCurrentMonth}
             aria-label="오늘로 이동"
             data-testid="today"
-            className="rounded-md px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-subtle hover:text-ink disabled:opacity-40 disabled:cursor-not-allowed"
+            className="rounded-md px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-subtle hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             오늘
           </button>
@@ -60,26 +66,36 @@ export function CalendarView({ anchor, today }: CalendarViewProps) {
             onClick={() => setAnchorDate((d) => startOfMonth(addMonths(d, 1)))}
             aria-label="다음 달"
             data-testid="next-month"
-            className="rounded-md px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-subtle hover:text-ink"
+            className="rounded-md px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-subtle hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
           >
             →
           </button>
         </nav>
       </header>
 
-      <div role="grid" aria-rowcount={7} className="grid grid-cols-7 gap-px bg-surface-muted rounded-md overflow-hidden">
-        {WEEKDAY_LABELS.map((label) => (
-          <div
-            key={label}
-            role="columnheader"
-            className="bg-surface-subtle py-2 text-center text-xs font-medium text-ink-muted"
-          >
-            {label}
-          </div>
-        ))}
+      <div role="grid" aria-rowcount={7} className="bg-surface-muted rounded-md overflow-hidden">
+        <div role="row" className="grid grid-cols-7 gap-px">
+          {WEEKDAY_LABELS.map((label) => (
+            <div
+              key={label}
+              role="columnheader"
+              className="bg-surface-subtle py-2 text-center text-xs font-medium text-ink-muted"
+            >
+              {label}
+            </div>
+          ))}
+        </div>
 
-        {cells.map((cell) => (
-          <DateCell key={cell.key} cell={cell} onSelect={() => setOpenDate(cell.key)} />
+        {chunk(cells, 7).map((row, rowIdx) => (
+          <div
+            key={`row-${rowIdx}`}
+            role="row"
+            className="grid grid-cols-7 gap-px"
+          >
+            {row.map((cell) => (
+              <DateCell key={cell.key} cell={cell} onSelect={() => setOpenDate(cell.key)} />
+            ))}
+          </div>
         ))}
       </div>
 
@@ -114,7 +130,7 @@ function DateCell({ cell, onSelect }: DateCellProps) {
       data-date={cell.key}
       data-today={cell.isToday || undefined}
       data-out-of-month={!cell.inCurrentMonth || undefined}
-      className="bg-surface min-h-[5.5rem] p-2 text-left flex flex-col hover:bg-surface-subtle focus:outline-none focus:ring-2 focus:ring-brand-500"
+      className="bg-surface min-h-[5.5rem] p-2 text-left flex flex-col hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:relative focus-visible:z-10"
     >
       <span className={dayClass}>{cell.day}</span>
       {count > 0 ? (

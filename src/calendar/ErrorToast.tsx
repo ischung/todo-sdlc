@@ -17,7 +17,7 @@ export function ErrorToast() {
         onClick={dismissError}
         aria-label="에러 닫기"
         data-testid="error-toast-close"
-        className="rounded-md bg-white/10 px-2 py-1 text-xs font-semibold hover:bg-white/20"
+        className="rounded-md bg-white/10 px-2 py-1 text-xs font-semibold hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
       >
         닫기
       </button>

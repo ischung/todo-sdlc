@@ -50,7 +50,7 @@ function TodoItem({ todo, onToggle, onRemove }: TodoItemProps) {
         onChange={onToggle}
         aria-label={`${todo.title} 완료 여부`}
         data-testid="todo-toggle"
-        className="h-4 w-4 accent-brand-600"
+        className="h-4 w-4 accent-brand-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
       />
       <span
         data-testid="todo-title"
@@ -65,7 +65,7 @@ function TodoItem({ todo, onToggle, onRemove }: TodoItemProps) {
         onClick={onRemove}
         aria-label={`${todo.title} 삭제`}
         data-testid="todo-remove"
-        className="rounded-md px-2 py-1 text-xs text-ink-muted hover:bg-surface-muted hover:text-red-600"
+        className="rounded-md px-2 py-1 text-xs text-ink-muted hover:bg-surface-muted hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
       >
         ✕
       </button>
