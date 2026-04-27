@@ -49,7 +49,7 @@ export function TodoInputForm({ date }: TodoInputFormProps) {
         <button
           type="submit"
           data-testid="todo-add"
-          className="rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700"
+          className="rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
         >
           추가
         </button>

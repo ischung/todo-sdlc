@@ -18,7 +18,7 @@ export function UndoToast() {
         type="button"
         onClick={() => undoRemove()}
         data-testid="undo-button"
-        className="rounded-md bg-white/10 px-3 py-1 text-xs font-semibold hover:bg-white/20"
+        className="rounded-md bg-white/10 px-3 py-1 text-xs font-semibold hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
       >
         되돌리기
       </button>

@@ -46,7 +46,7 @@ export function DayDetailPanel({ date, onClose }: DayDetailPanelProps) {
             onClick={onClose}
             aria-label="닫기"
             data-testid="day-detail-close"
-            className="rounded-md px-2 py-1 text-sm text-ink-muted hover:bg-surface-muted"
+            className="rounded-md px-2 py-1 text-sm text-ink-muted hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
           >
             ✕
           </button>

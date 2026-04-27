@@ -41,7 +41,7 @@ export function CalendarView({ anchor, today }: CalendarViewProps) {
             onClick={() => setAnchorDate((d) => startOfMonth(subMonths(d, 1)))}
             aria-label="이전 달"
             data-testid="prev-month"
-            className="rounded-md px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-subtle hover:text-ink"
+            className="rounded-md px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-subtle hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
           >
             ←
           </button>
@@ -51,7 +51,7 @@ export function CalendarView({ anchor, today }: CalendarViewProps) {
             disabled={isCurrentMonth}
             aria-label="오늘로 이동"
             data-testid="today"
-            className="rounded-md px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-subtle hover:text-ink disabled:opacity-40 disabled:cursor-not-allowed"
+            className="rounded-md px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-subtle hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             오늘
           </button>
@@ -60,7 +60,7 @@ export function CalendarView({ anchor, today }: CalendarViewProps) {
             onClick={() => setAnchorDate((d) => startOfMonth(addMonths(d, 1)))}
             aria-label="다음 달"
             data-testid="next-month"
-            className="rounded-md px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-subtle hover:text-ink"
+            className="rounded-md px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-subtle hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
           >
             →
           </button>
@@ -114,7 +114,7 @@ function DateCell({ cell, onSelect }: DateCellProps) {
       data-date={cell.key}
       data-today={cell.isToday || undefined}
       data-out-of-month={!cell.inCurrentMonth || undefined}
-      className="bg-surface min-h-[5.5rem] p-2 text-left flex flex-col hover:bg-surface-subtle focus:outline-none focus:ring-2 focus:ring-brand-500"
+      className="bg-surface min-h-[5.5rem] p-2 text-left flex flex-col hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:relative focus-visible:z-10"
     >
       <span className={dayClass}>{cell.day}</span>
       {count > 0 ? (
