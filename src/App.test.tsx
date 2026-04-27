@@ -19,4 +19,10 @@ describe('<App />', () => {
     render(<App />);
     expect(screen.getByTestId('app-env')).toHaveTextContent(/env: \w+/);
   });
+
+  it('mounts the monthly calendar grid', () => {
+    render(<App />);
+    expect(screen.getByRole('grid')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toMatch(/\d{4}년 \d{1,2}월/);
+  });
 });
