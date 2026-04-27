@@ -9,11 +9,8 @@ test.describe('mobile sheet smoke (#14)', () => {
     const response = await page.goto(HOME);
     expect(response?.status(), 'home should respond 200').toBe(200);
 
-    // 오늘 셀 클릭 → 패널 노출
-    const todayCell = page
-      .getByRole('gridcell')
-      .filter({ has: page.locator('[aria-current="date"]') })
-      .first();
+    // 오늘 셀 클릭 → 패널 노출. aria-current 가 셀 자신에 붙어있다.
+    const todayCell = page.locator('[role="gridcell"][aria-current="date"]').first();
     await todayCell.click();
 
     const sheet = page.getByTestId('day-detail-sheet');
