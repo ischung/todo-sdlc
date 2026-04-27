@@ -1,10 +1,11 @@
-import { format } from 'date-fns';
+import { useState } from 'react';
+import { addMonths, format, startOfMonth, subMonths } from 'date-fns';
 import { buildMonthGrid, type CalendarCell } from './buildMonthGrid';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
 interface CalendarViewProps {
-  /** 표시할 달의 임의 일자 (보통 매달 1일). 미지정 시 today. */
+  /** 초기 표시 달의 임의 일자. 미지정 시 today. */
   anchor?: Date;
   /** 오늘 강조 기준. 테스트에서 주입 가능. */
   today?: Date;
@@ -12,18 +13,51 @@ interface CalendarViewProps {
 
 export function CalendarView({ anchor, today }: CalendarViewProps) {
   const todayDate = today ?? new Date();
-  const anchorDate = anchor ?? todayDate;
+  const [anchorDate, setAnchorDate] = useState<Date>(() => startOfMonth(anchor ?? todayDate));
+
   const cells = buildMonthGrid(anchorDate, todayDate);
+  const monthLabel = format(anchorDate, 'yyyy년 M월');
+  const isCurrentMonth =
+    anchorDate.getFullYear() === todayDate.getFullYear() &&
+    anchorDate.getMonth() === todayDate.getMonth();
 
   return (
     <section
-      aria-label={`${format(anchorDate, 'yyyy년 M월')} 달력`}
+      aria-label={`${monthLabel} 달력`}
       className="rounded-card bg-surface shadow-card p-4"
     >
-      <header className="flex items-baseline justify-between mb-3">
-        <h2 className="text-2xl font-semibold tracking-tight text-ink">
-          {format(anchorDate, 'yyyy년 M월')}
-        </h2>
+      <header className="flex items-center justify-between mb-3 gap-2">
+        <h2 className="text-2xl font-semibold tracking-tight text-ink">{monthLabel}</h2>
+        <nav aria-label="달 이동" className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setAnchorDate((d) => startOfMonth(subMonths(d, 1)))}
+            aria-label="이전 달"
+            data-testid="prev-month"
+            className="rounded-md px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-subtle hover:text-ink"
+          >
+            ←
+          </button>
+          <button
+            type="button"
+            onClick={() => setAnchorDate(startOfMonth(todayDate))}
+            disabled={isCurrentMonth}
+            aria-label="오늘로 이동"
+            data-testid="today"
+            className="rounded-md px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-subtle hover:text-ink disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            오늘
+          </button>
+          <button
+            type="button"
+            onClick={() => setAnchorDate((d) => startOfMonth(addMonths(d, 1)))}
+            aria-label="다음 달"
+            data-testid="next-month"
+            className="rounded-md px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-subtle hover:text-ink"
+          >
+            →
+          </button>
+        </nav>
       </header>
 
       <div role="grid" aria-rowcount={7} className="grid grid-cols-7 gap-px bg-surface-muted rounded-md overflow-hidden">
