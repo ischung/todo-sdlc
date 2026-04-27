@@ -7,6 +7,8 @@ export default {
         brand: {
           50: '#eef4ff',
           500: '#3b82f6',
+          // bg-brand-600 + text-white = 5.17:1 (AA pass). 누락 시 흰 텍스트가 부모 배경 위에 그대로 떨어짐.
+          600: '#2563eb',
           700: '#1d4ed8',
         },
         surface: {
