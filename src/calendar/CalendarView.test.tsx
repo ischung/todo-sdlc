@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { CalendarView } from './CalendarView';
 
@@ -34,6 +35,38 @@ describe('<CalendarView />', () => {
     const cells = screen.getAllByRole('gridcell');
     const highlighted = cells.filter((c) => c.getAttribute('aria-current') === 'date');
     expect(highlighted).toHaveLength(0);
+  });
+
+  it('다음 달 클릭 시 헤더와 셀이 갱신된다 (#10 AC-1)', async () => {
+    const user = userEvent.setup();
+    const today = new Date(2026, 3, 27);
+    render(<CalendarView anchor={today} today={today} />);
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('2026년 4월');
+
+    await user.click(screen.getByTestId('next-month'));
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('2026년 5월');
+    // 5월 1일 / 5월 31일 셀이 그리드에 포함된다
+    expect(screen.getByLabelText(/^2026-05-01/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^2026-05-31/)).toBeInTheDocument();
+  });
+
+  it('이전 달 → 오늘 버튼으로 현재 월 복귀 + 오늘 강조 (#10 AC-2)', async () => {
+    const user = userEvent.setup();
+    const today = new Date(2026, 3, 27);
+    render(<CalendarView anchor={today} today={today} />);
+
+    await user.click(screen.getByTestId('prev-month'));
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('2026년 3월');
+
+    const goToday = screen.getByTestId('today');
+    expect(goToday).toBeEnabled();
+    await user.click(goToday);
+
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('2026년 4월');
+    const todayCell = screen.getByLabelText(/2026-04-27, 오늘/);
+    expect(todayCell.getAttribute('aria-current')).toBe('date');
+    // 현재 월에 머물 때 오늘 버튼은 비활성
+    expect(screen.getByTestId('today')).toBeDisabled();
   });
 
   it('marks out-of-month cells visually distinct', () => {
