@@ -104,7 +104,7 @@ function DateCell({ cell, onSelect }: DateCellProps) {
       type="button"
       role="gridcell"
       onClick={onSelect}
-      aria-label={`${cell.key}${cell.isToday ? ', 오늘' : ''}${count > 0 ? `, 할 일 ${count}개` : ''}`}
+      aria-label={`${cell.key}${cell.isToday ? ', 오늘' : ''}${count > 0 ? `, 미완료 ${count}개` : ''}`}
       aria-current={cell.isToday ? 'date' : undefined}
       data-date={cell.key}
       data-today={cell.isToday || undefined}
@@ -113,8 +113,11 @@ function DateCell({ cell, onSelect }: DateCellProps) {
     >
       <span className={dayClass}>{cell.day}</span>
       {count > 0 ? (
-        <span data-testid="todo-count" className="mt-auto text-xs text-ink-muted">
-          {count}
+        <span
+          data-testid="todo-count"
+          className="mt-auto self-end inline-flex items-center justify-center rounded-full bg-brand-600 text-white text-[10px] font-semibold leading-none min-w-[1.25rem] h-5 px-1"
+        >
+          {count > 9 ? '9+' : count}
         </span>
       ) : null}
     </button>

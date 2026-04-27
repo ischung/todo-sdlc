@@ -13,6 +13,7 @@ export interface TodoContextValue {
   listByDate: (date: DateKey) => Todo[];
   countByDate: (date: DateKey) => number;
   addTodo: (input: AddTodoInput) => Result<Todo>;
+  toggleTodo: (input: { date: DateKey; id: string }) => Result<void>;
 }
 
 export const TodoContext = createContext<TodoContextValue | null>(null);

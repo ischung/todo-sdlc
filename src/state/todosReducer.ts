@@ -8,7 +8,8 @@ export interface TodosState {
 
 export type TodosAction =
   | { type: 'LOAD'; payload: PersistRoot }
-  | { type: 'ADD'; payload: Todo };
+  | { type: 'ADD'; payload: Todo }
+  | { type: 'TOGGLE'; payload: { date: DateKey; id: string; updatedAt: string } };
 
 export const initialTodosState: TodosState = {
   loaded: false,
@@ -30,6 +31,16 @@ export function todosReducer(state: TodosState, action: TodosAction): TodosState
         },
       };
     }
+    case 'TOGGLE': {
+      const { date, id, updatedAt } = action.payload;
+      const list = state.root.todosByDate[date];
+      if (!list) return state;
+      const next = list.map((t) => (t.id === id ? { ...t, done: !t.done, updatedAt } : t));
+      return {
+        ...state,
+        root: { ...state.root, todosByDate: { ...state.root.todosByDate, [date]: next } },
+      };
+    }
     default:
       return state;
   }
@@ -39,6 +50,7 @@ export function selectListByDate(state: TodosState, date: DateKey): Todo[] {
   return state.root.todosByDate[date] ?? [];
 }
 
+/** 미완료 todo 개수 — 셀 배지의 시각 신호. */
 export function selectCountByDate(state: TodosState, date: DateKey): number {
-  return selectListByDate(state, date).length;
+  return selectListByDate(state, date).filter((t) => !t.done).length;
 }
