@@ -1,0 +1,199 @@
+name: deploy-prod
+
+# release/* 태그 푸시 시에만 동작.
+# 예) git tag release/v0.1.0 && git push origin release/v0.1.0
+on:
+  push:
+    tags:
+      - 'release/v*'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: '수동 배포 사유'
+        required: false
+
+# 같은 환경에 대해 동시 배포 금지. 새 푸시는 큐잉(취소 X) — 진행 중인 승인 절차를 보호.
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # gh-pages push + (롤백용) tag 조회
+
+jobs:
+  build:
+    name: build (mode=production)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      previous_tag: ${{ steps.meta.outputs.previous_tag }}
+      prod_url: ${{ steps.meta.outputs.prod_url }}
+    steps:
+      - name: Checkout (with full history for tag lookup)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (mode=production)
+        run: npm run build -- --mode production
+
+      - name: Resolve metadata (current/previous tag, URL)
+        id: meta
+        run: |
+          set -euo pipefail
+          CUR="${GITHUB_REF_NAME:-}"
+          # workflow_dispatch 면 GITHUB_REF_NAME 이 브랜치 이름일 수 있다 → 가장 최근 release/v* 태그로 폴백
+          if [[ "${GITHUB_EVENT_NAME}" != "push" ]]; then
+            CUR="$(git tag -l 'release/v*' --sort=-creatordate | head -n1)"
+            [ -z "$CUR" ] && { echo "no release tag found"; exit 1; }
+          fi
+          PREV="$(git tag -l 'release/v*' --sort=-creatordate | grep -v -x "$CUR" | head -n1 || true)"
+          URL="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY##*/}/"
+          {
+            echo "tag=$CUR"
+            echo "previous_tag=$PREV"
+            echo "prod_url=$URL"
+          } >> "$GITHUB_OUTPUT"
+          echo "current=$CUR  previous=$PREV  url=$URL"
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-dist
+          path: dist/
+          retention-days: 14
+
+  deploy:
+    # GitHub Environment 'production' 의 required reviewer 설정이
+    # 이 job 시작 전에 승인 게이트 역할을 한다 (AC-1).
+    name: deploy → gh-pages:/  (production)
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: production
+      url: ${{ needs.build.outputs.prod_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download dist
+        uses: actions/download-artifact@v4
+        with:
+          name: prod-dist
+          path: dist
+
+      - name: Deploy to gh-pages:/  (production root)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./dist
+          # destination_dir 미지정 → gh-pages 루트가 production 위치 (vite base=/todo-sdlc/)
+          # keep_files: true 로 /staging 폴더는 보존하되, 루트 파일은 갱신.
+          keep_files: true
+          exclude_assets: 'staging/**'
+          commit_message: "chore(prod): deploy ${{ needs.build.outputs.tag }} (${{ github.sha }})"
+          user_name: 'github-actions[bot]'
+          user_email: '41898282+github-actions[bot]@users.noreply.github.com'
+
+      - name: Print deploy URL
+        run: |
+          echo "::notice title=Production deployed::${{ needs.build.outputs.prod_url }}"
+          echo "🔗 Production URL: ${{ needs.build.outputs.prod_url }}"
+
+  smoke:
+    name: playwright smoke (production)
+    needs: [build, deploy]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SMOKE_BASE_URL: ${{ needs.build.outputs.prod_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Wait for Pages propagation (≤ 2 min)
+        run: |
+          for i in $(seq 1 24); do
+            CODE=$(curl -sS -o /dev/null -w "%{http_code}" "$SMOKE_BASE_URL" || true)
+            echo "  attempt $i: HTTP $CODE"
+            [ "$CODE" = "200" ] && exit 0
+            sleep 5
+          done
+          echo "::warning title=Pages not 200::$SMOKE_BASE_URL"
+
+      - name: Run smoke tests against $SMOKE_BASE_URL
+        run: npx playwright test --reporter=list,html
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-prod-smoke-report
+          path: playwright-report/
+          retention-days: 14
+
+  rollback:
+    # smoke 가 실패하면 직전 release/v* 태그의 dist 를 다시 빌드해 gh-pages 루트에 덮어쓴다.
+    name: auto-rollback to previous release
+    needs: [build, deploy, smoke]
+    if: failure() && needs.smoke.result == 'failure' && needs.build.outputs.previous_tag != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout previous tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.previous_tag }}
+          fetch-depth: 0
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build previous release (mode=production)
+        run: npm run build -- --mode production
+
+      - name: Re-deploy previous release to gh-pages:/  (production root)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./dist
+          keep_files: true
+          exclude_assets: 'staging/**'
+          commit_message: "revert(prod): rollback to ${{ needs.build.outputs.previous_tag }} after smoke failed on ${{ needs.build.outputs.tag }}"
+          user_name: 'github-actions[bot]'
+          user_email: '41898282+github-actions[bot]@users.noreply.github.com'
+
+      - name: Notify rollback
+        run: |
+          echo "::warning title=Production rollback::smoke failed on ${{ needs.build.outputs.tag }} → re-deployed ${{ needs.build.outputs.previous_tag }}"
