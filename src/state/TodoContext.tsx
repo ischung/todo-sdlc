@@ -8,7 +8,12 @@ import {
   type ReactNode,
 } from 'react';
 import type { DateKey, PersistRoot, Result, Todo } from '../domain/types';
-import { TodoRepository, detectBrowserStorage, type StorageLike } from '../infra/TodoRepository';
+import {
+  STORAGE_KEY,
+  TodoRepository,
+  detectBrowserStorage,
+  type StorageLike,
+} from '../infra/TodoRepository';
 import {
   TodoContext,
   type AddTodoInput,
@@ -46,17 +51,19 @@ export function TodoProvider({
   now,
   undoWindowMs = DEFAULT_UNDO_MS,
 }: TodoProviderProps) {
-  const repository = useMemo(
-    () => new TodoRepository(storage === undefined ? detectBrowserStorage() : storage),
+  const resolvedStorage = useMemo<StorageLike | null>(
+    () => (storage === undefined ? detectBrowserStorage() : storage),
     [storage],
   );
+  const storageUnavailable = resolvedStorage === null;
+  const repository = useMemo(() => new TodoRepository(resolvedStorage), [resolvedStorage]);
   const [state, dispatch] = useReducer(todosReducer, initialTodosState);
 
   // reducer 최신 state 를 effect 외부 콜백에서 안전하게 읽기 위해 ref 동기화.
   const stateRef = useRef<TodosState>(state);
   stateRef.current = state;
 
-  useEffect(() => {
+  const loadFromRepository = useCallback(() => {
     const result = repository.load();
     if (result.ok) {
       dispatch({ type: 'LOAD', payload: result.data });
@@ -64,6 +71,29 @@ export function TodoProvider({
       dispatch({ type: 'LOAD', payload: { schemaVersion: 1, todosByDate: {} } });
     }
   }, [repository]);
+
+  useEffect(() => {
+    loadFromRepository();
+  }, [loadFromRepository]);
+
+  // 다른 탭/창에서 같은 STORAGE_KEY 가 갱신되면 즉시 LOAD 재실행 → 동기화.
+  // window.localStorage 이외의 주입 storage 에 대해서는 storage 이벤트가 발생하지 않으므로
+  // 이 리스너는 자연스럽게 비활성이며 유닛 테스트는 dispatchEvent 로 검증한다.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== null && e.key !== STORAGE_KEY) return;
+      loadFromRepository();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [loadFromRepository]);
+
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const dismissError = useCallback(() => setErrorMessage(null), []);
+  const reportSaveError = useCallback((message: string) => {
+    setErrorMessage(message);
+  }, []);
 
   const addTodo = useCallback(
     ({ date, title }: AddTodoInput): Result<Todo> => {
@@ -98,13 +128,14 @@ export function TodoProvider({
 
       const saved = repository.save(nextRoot);
       if (!saved.ok) {
+        reportSaveError('앗, 저장하지 못했어요. 다시 시도해주세요.');
         return saved;
       }
 
       dispatch({ type: 'ADD', payload: todo });
       return { ok: true, data: todo };
     },
-    [repository, generateId, now],
+    [repository, generateId, now, reportSaveError],
   );
 
   const toggleTodo = useCallback(
@@ -125,11 +156,14 @@ export function TodoProvider({
         todosByDate: { ...prev.root.todosByDate, [date]: nextList },
       };
       const saved = repository.save(nextRoot);
-      if (!saved.ok) return saved;
+      if (!saved.ok) {
+        reportSaveError('앗, 저장하지 못했어요. 다시 시도해주세요.');
+        return saved;
+      }
       dispatch({ type: 'TOGGLE', payload: { date, id, updatedAt: ts } });
       return { ok: true, data: undefined };
     },
-    [repository, now],
+    [repository, now, reportSaveError],
   );
 
   const [pendingRemoval, setPendingRemoval] = useState<PendingRemoval | null>(null);
@@ -173,7 +207,10 @@ export function TodoProvider({
       const target = list[index]!;
 
       const saved = persistRemoval(date, id);
-      if (!saved.ok) return saved;
+      if (!saved.ok) {
+        reportSaveError('앗, 저장하지 못했어요. 다시 시도해주세요.');
+        return saved;
+      }
 
       dispatch({ type: 'REMOVE', payload: { date, id } });
 
@@ -188,7 +225,7 @@ export function TodoProvider({
 
       return { ok: true, data: removal };
     },
-    [persistRemoval, clearTimer, undoWindowMs],
+    [persistRemoval, clearTimer, undoWindowMs, reportSaveError],
   );
 
   const undoRemove = useCallback((): Result<void> => {
@@ -205,12 +242,15 @@ export function TodoProvider({
       todosByDate: { ...prev.root.todosByDate, [removal.date]: nextList },
     };
     const saved = repository.save(nextRoot);
-    if (!saved.ok) return saved;
+    if (!saved.ok) {
+      reportSaveError('앗, 되돌리지 못했어요. 다시 시도해주세요.');
+      return saved;
+    }
     dispatch({ type: 'RESTORE', payload: { date: removal.date, index: idx, todo: removal.todo } });
     clearTimer();
     setPendingRemoval(null);
     return { ok: true, data: undefined };
-  }, [pendingRemoval, repository, clearTimer]);
+  }, [pendingRemoval, repository, clearTimer, reportSaveError]);
 
   const value = useMemo<TodoContextValue>(
     () => ({
@@ -222,8 +262,21 @@ export function TodoProvider({
       removeTodo,
       undoRemove,
       pendingRemoval,
+      errorMessage,
+      dismissError,
+      storageUnavailable,
     }),
-    [state, addTodo, toggleTodo, removeTodo, undoRemove, pendingRemoval],
+    [
+      state,
+      addTodo,
+      toggleTodo,
+      removeTodo,
+      undoRemove,
+      pendingRemoval,
+      errorMessage,
+      dismissError,
+      storageUnavailable,
+    ],
   );
 
   return <TodoContext.Provider value={value}>{children}</TodoContext.Provider>;
