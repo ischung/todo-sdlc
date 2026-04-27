@@ -25,6 +25,8 @@ export default defineConfig(({ mode }) => {
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],
       css: true,
+      include: ['src/**/*.{test,spec}.{ts,tsx}'],
+      exclude: ['node_modules', 'dist', 'tests/**', 'playwright-report/**'],
     },
   };
 });

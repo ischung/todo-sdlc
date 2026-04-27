@@ -14,6 +14,8 @@ on:
       - 'postcss.config.js'
       - 'tsconfig*.json'
       - '.env.staging'
+      - 'playwright.config.ts'
+      - 'tests/smoke/**'
       - '.github/workflows/deploy-staging.yml'
   workflow_dispatch:
 
@@ -64,8 +66,59 @@ jobs:
           user_email: '41898282+github-actions[bot]@users.noreply.github.com'
 
       - name: Print deploy URL
+        id: url
         run: |
           URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/staging/"
           echo "::notice title=Staging deployed::$URL"
           echo "🔗 Staging URL: $URL"
-          echo "STAGING_URL=$URL" >> "$GITHUB_OUTPUT"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+    outputs:
+      staging_url: ${{ steps.url.outputs.url }}
+
+  smoke:
+    # AC-1: 스테이징 배포 직후 Playwright smoke 가 자동 실행된다 (needs로 직렬화)
+    # AC-2: smoke 실패 시 워크플로우가 빨간불이 된다 (별도 job + needs)
+    # AC-3: HTML 리포트가 artifact 로 업로드된다 (if: always)
+    name: playwright smoke (staging)
+    needs: build-and-deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SMOKE_BASE_URL: ${{ needs.build-and-deploy.outputs.staging_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Wait for Pages propagation (≤ 2 min)
+        run: |
+          for i in $(seq 1 24); do
+            CODE=$(curl -sS -o /dev/null -w "%{http_code}" "$SMOKE_BASE_URL" || true)
+            echo "  attempt $i: HTTP $CODE"
+            [ "$CODE" = "200" ] && exit 0
+            sleep 5
+          done
+          echo "::warning title=Pages not 200::$SMOKE_BASE_URL"
+
+      - name: Run smoke tests against $SMOKE_BASE_URL
+        run: npx playwright test --reporter=list,html
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-smoke-report
+          path: playwright-report/
+          retention-days: 14
