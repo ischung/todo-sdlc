@@ -45,3 +45,8 @@ coverage/
 *.d.ts
 !src/**/*.d.ts
 vite.config.js
+
+# Playwright
+playwright-report/
+test-results/
+playwright/.cache/
