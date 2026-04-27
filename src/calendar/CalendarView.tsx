@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { addMonths, format, startOfMonth, subMonths } from 'date-fns';
+import type { DateKey } from '../domain/types';
+import { useTodos } from '../state/useTodos';
 import { buildMonthGrid, type CalendarCell } from './buildMonthGrid';
+import { DayDetailPanel } from './DayDetailPanel';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -14,6 +17,7 @@ interface CalendarViewProps {
 export function CalendarView({ anchor, today }: CalendarViewProps) {
   const todayDate = today ?? new Date();
   const [anchorDate, setAnchorDate] = useState<Date>(() => startOfMonth(anchor ?? todayDate));
+  const [openDate, setOpenDate] = useState<DateKey | null>(null);
 
   const cells = buildMonthGrid(anchorDate, todayDate);
   const monthLabel = format(anchorDate, 'yyyy년 M월');
@@ -72,19 +76,23 @@ export function CalendarView({ anchor, today }: CalendarViewProps) {
         ))}
 
         {cells.map((cell) => (
-          <DateCell key={cell.key} cell={cell} />
+          <DateCell key={cell.key} cell={cell} onSelect={() => setOpenDate(cell.key)} />
         ))}
       </div>
+
+      {openDate ? <DayDetailPanel date={openDate} onClose={() => setOpenDate(null)} /> : null}
     </section>
   );
 }
 
 interface DateCellProps {
   cell: CalendarCell;
+  onSelect: () => void;
 }
 
-function DateCell({ cell }: DateCellProps) {
-  const base = 'bg-surface min-h-[5.5rem] p-2 text-left flex flex-col';
+function DateCell({ cell, onSelect }: DateCellProps) {
+  const { countByDate } = useTodos();
+  const count = countByDate(cell.key);
   const dayClass = cell.isToday
     ? 'text-sm font-bold text-brand-700'
     : cell.inCurrentMonth
@@ -92,16 +100,23 @@ function DateCell({ cell }: DateCellProps) {
       : 'text-sm text-ink-faint';
 
   return (
-    <div
+    <button
+      type="button"
       role="gridcell"
-      aria-label={`${cell.key}${cell.isToday ? ', 오늘' : ''}`}
+      onClick={onSelect}
+      aria-label={`${cell.key}${cell.isToday ? ', 오늘' : ''}${count > 0 ? `, 할 일 ${count}개` : ''}`}
       aria-current={cell.isToday ? 'date' : undefined}
       data-date={cell.key}
       data-today={cell.isToday || undefined}
       data-out-of-month={!cell.inCurrentMonth || undefined}
-      className={base}
+      className="bg-surface min-h-[5.5rem] p-2 text-left flex flex-col hover:bg-surface-subtle focus:outline-none focus:ring-2 focus:ring-brand-500"
     >
       <span className={dayClass}>{cell.day}</span>
-    </div>
+      {count > 0 ? (
+        <span data-testid="todo-count" className="mt-auto text-xs text-ink-muted">
+          {count}
+        </span>
+      ) : null}
+    </button>
   );
 }
