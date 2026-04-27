@@ -12,7 +12,7 @@ export function TodoList({ date }: TodoListProps) {
   if (items.length === 0) {
     return (
       <p className="text-sm text-ink-faint" data-testid="todo-empty">
-        아직 등록된 할 일이 없어요.
+        아직 할 일이 없어요. 첫 번째 항목을 추가해보세요!
       </p>
     );
   }

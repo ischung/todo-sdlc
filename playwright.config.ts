@@ -18,7 +18,18 @@ export default defineConfig({
     baseURL: externalBase ?? PREVIEW_URL,
     trace: 'retain-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    {
+      // CI 는 chromium 만 설치하므로 viewport·UA 만 빌려쓰고 brand/channel 은 강제로 chromium 유지.
+      name: 'mobile',
+      use: {
+        ...devices['iPhone 13'],
+        defaultBrowserType: 'chromium',
+        browserName: 'chromium',
+      },
+    },
+  ],
   webServer: externalBase
     ? undefined
     : {
