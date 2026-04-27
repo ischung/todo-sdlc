@@ -1,0 +1,71 @@
+name: deploy-staging
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+      - 'tailwind.config.js'
+      - 'postcss.config.js'
+      - 'tsconfig*.json'
+      - '.env.staging'
+      - '.github/workflows/deploy-staging.yml'
+  workflow_dispatch:
+
+# 동시 실행 시 가장 최신 push만 살리고 나머지는 즉시 취소.
+# 실패해도 in-progress 가 남지 않으므로 직전 gh-pages 상태가 유지됨 (AC-2).
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: true
+
+permissions:
+  contents: write   # gh-pages 브랜치 push 용 (peaceiris/actions-gh-pages)
+
+jobs:
+  build-and-deploy:
+    name: build · deploy → gh-pages:/staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: staging
+      url: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/staging/
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (mode=staging)
+        run: npm run build -- --mode staging
+
+      - name: Deploy to gh-pages:/staging
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./dist
+          destination_dir: staging
+          keep_files: true   # /production 등 다른 폴더 보존
+          commit_message: 'chore(staging): deploy ${{ github.sha }}'
+          user_name: 'github-actions[bot]'
+          user_email: '41898282+github-actions[bot]@users.noreply.github.com'
+
+      - name: Print deploy URL
+        run: |
+          URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/staging/"
+          echo "::notice title=Staging deployed::$URL"
+          echo "🔗 Staging URL: $URL"
+          echo "STAGING_URL=$URL" >> "$GITHUB_OUTPUT"
